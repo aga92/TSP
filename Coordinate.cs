@@ -31,13 +31,13 @@ namespace MyTSP
         }
 
         // Geographic distance between two points (as an integer).
-        public int Distance(Coordinate p)
+        public double Distance(Coordinate p)
         {
             double q1 = Math.Cos(Longitude - p.Longitude);
             double q2 = Math.Cos(Latitude - p.Latitude);
             double q3 = Math.Cos(Latitude + p.Latitude);
             // There may rounding difficulties her if the points are close together...just sayin'.
-            return (int)(6378.388 * Math.Acos(0.5 * ((1 + q1) * q2 - (1 - q1) * q3)) + 1);
+            return (double)(6378.388 * Math.Acos(0.5 * ((1 + q1) * q2 - (1 - q1) * q3)) + 1);
         }
     }
 }

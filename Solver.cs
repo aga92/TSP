@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using Microsoft.SolverFoundation.Services;
 
@@ -22,7 +23,11 @@ namespace MyTSP
       new Coordinate(12, 19.41, 97.13),
       new Coordinate(13, 20.09, 94.55)
     };
-        public static void SolveTspLinearProgramming()
+
+        public static IEnumerable<Arc> Arcs { get; private set; }
+        private static int startCity = 0;
+
+        public static List<int> SolveTspLinearProgramming(out double length)
         {
             SolverContext context = SolverContext.GetContext();
             Model model = context.CreateModel();
@@ -31,10 +36,10 @@ namespace MyTSP
             // Parameters
             Set city = new Set(Domain.IntegerNonnegative, "city");
             Parameter dist = new Parameter(Domain.Real, "dist", city, city);
-            var arcs = from p1 in data
-                       from p2 in data
-                       select new Arc { City1 = p1.Name, City2 = p2.Name, Distance = p1.Distance(p2) };
-            dist.SetBinding(arcs, "Distance", "City1", "City2");
+            Arcs = from p1 in data
+                   from p2 in data
+                   select new Arc { City1 = p1.Name, City2 = p2.Name, Distance = p1.Distance(p2) };
+            dist.SetBinding(Arcs, "Distance", "City1", "City2");
             model.AddParameters(dist);
 
             // ------------
@@ -69,14 +74,87 @@ namespace MyTSP
             Solution solution = context.Solve();
 
             // Retrieve solution information.
-            Console.WriteLine("Cost = {0}", goal.ToDouble());
-            Console.WriteLine("Tour:");
-            var tour = from p in assign.GetValues() where (double)p[0] > 0.9 select p[2];
-            foreach (var i in tour.ToArray())
+            //Console.WriteLine("Cost = {0}", goal.ToDouble());
+            length = goal.ToDouble();
+            //Console.WriteLine("Tour:");
+            IEnumerable<object> tour = from p in assign.GetValues() where (double)p[0] > 0.9 select p[2];
+            //foreach (var i in tour.ToArray())
+            //{
+            //    Console.Write(i + " -> ");
+            //}
+            //Console.WriteLine();
+            return tour.Select(Convert.ToInt32).ToList();
+        }
+
+        public static List<int> Solve2Tsp(out double length1, out double length2, out double lengthTsp)
+        {
+            var tour = ChangeCityOrder(SolveTspLinearProgramming(out lengthTsp),startCity).ToList();
+            int firstInCycle = tour.First();
+            int lastInCycle = tour.Last();
+            
+            int a; //początek odcinka, który sprawdzamy, czy zamiast niego nie wrócić do miasta startowego
+            a = lastInCycle;
+            int? minPoint = null;
+            length1 = Double.MaxValue;
+            length2 = Double.MaxValue;
+            double currentMinimum = Double.MaxValue;
+            double lengthFromStartToA = 0;
+            foreach (int b in tour)
             {
-                Console.Write(i + " -> ");
+                if (startCity == b) //pierwsza iteracja omijana
+                {
+                    a = b;
+                    continue;
+                }
+                double distanceAb = Distance(a, b);
+                double distanceFor1 = Distance(a, startCity);
+                double distanceFor2 = Distance(startCity, b);
+                double distanceChange = distanceFor1 + distanceFor2 - distanceAb;
+                if (a != startCity && b != startCity)
+                {
+                    
+                    var cost = Delta(lengthFromStartToA+distanceFor1, 
+                        lengthTsp - lengthFromStartToA - distanceAb + distanceFor2, 
+                        distanceChange);
+                    if (cost < currentMinimum)
+                    {
+                        currentMinimum = cost;
+                        minPoint = a;
+                        length1 = lengthFromStartToA + distanceFor1;
+                        length2 = lengthTsp - lengthFromStartToA - distanceAb + distanceFor2;
+                    }
+                }
+                a = b;
+                lengthFromStartToA += distanceAb;
             }
-            Console.WriteLine();
+            List<int> solution = new List<int>();
+            foreach (int k in tour)
+            {
+                solution.Add(k);
+                if (k == minPoint)
+                {
+                    solution.Add(startCity);
+                }
+            }
+            return solution;
+        }
+
+        private static double Delta(double length1, double length2, double cycleIncrease)  //funkcja oceny rozwiązania - wg. dróg komiwojażerów i powiększenia cyklu
+        {
+            return Math.Abs(length1 - length2) + cycleIncrease;
+        }
+
+        private static IEnumerable<int> ChangeCityOrder(List<int> tour, int start)
+        {
+            var firstPart = tour.SkipWhile(item => item != start);
+            var lastPart = tour.TakeWhile(item => item != start);
+            return firstPart.Concat(lastPart);
+        }
+
+
+        private static double Distance(int from, int to)
+        {
+            return data.First(item => item.Name == from).Distance(data.First(item => item.Name == to));
         }
     }
 }
