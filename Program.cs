@@ -4,7 +4,7 @@ namespace MyTSP
 {
     class Program
     {
-        static void Main(string[] args)
+        static void Main()
         {
             double length1, length2, lengthTsp;
             var tour = Solver.Solve2Tsp(out length1, out length2, out lengthTsp);

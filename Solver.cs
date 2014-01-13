@@ -25,7 +25,7 @@ namespace MyTSP
     };
 
         public static IEnumerable<Arc> Arcs { get; private set; }
-        private static int startCity = 0;
+        private const int StartCity = 0;
 
         public static List<int> SolveTspLinearProgramming(out double length)
         {
@@ -34,8 +34,8 @@ namespace MyTSP
 
             // ------------
             // Parameters
-            Set city = new Set(Domain.IntegerNonnegative, "city");
-            Parameter dist = new Parameter(Domain.Real, "dist", city, city);
+            var city = new Set(Domain.IntegerNonnegative, "city");
+            var dist = new Parameter(Domain.Real, "dist", city, city);
             Arcs = from p1 in data
                    from p2 in data
                    select new Arc { City1 = p1.Name, City2 = p2.Name, Distance = p1.Distance(p2) };
@@ -44,8 +44,8 @@ namespace MyTSP
 
             // ------------
             // Decisions
-            Decision assign = new Decision(Domain.IntegerRange(0, 1), "assign", city, city);
-            Decision rank = new Decision(Domain.RealNonnegative, "rank", city);
+            var assign = new Decision(Domain.IntegerRange(0, 1), "assign", city, city);
+            var rank = new Decision(Domain.RealNonnegative, "rank", city);
             model.AddDecisions(assign, rank);
 
             // ------------
@@ -55,7 +55,7 @@ namespace MyTSP
 
             // ------------
             // Enter and leave each city only once.
-            int N = data.Length;
+            int n = data.Length;
             model.AddConstraint("assign_1",
               Model.ForEach(city, i => Model.Sum(Model.ForEachWhere(city, j => assign[i, j], j => i != j)) == 1));
             model.AddConstraint("assign_2",
@@ -65,7 +65,7 @@ namespace MyTSP
             model.AddConstraint("no_subtours",
               Model.ForEach(city,
                 i => Model.ForEachWhere(city,
-                  j => rank[i] + 1 <= rank[j] + N * (1 - assign[i, j]),
+                  j => rank[i] + 1 <= rank[j] + n * (1 - assign[i, j]),
                   j => Model.And(i != j, i >= 1, j >= 1)
                 )
               )
@@ -88,12 +88,9 @@ namespace MyTSP
 
         public static List<int> Solve2Tsp(out double length1, out double length2, out double lengthTsp)
         {
-            var tour = ChangeCityOrder(SolveTspLinearProgramming(out lengthTsp),startCity).ToList();
-            int firstInCycle = tour.First();
+            var tour = ChangeCityOrder(SolveTspLinearProgramming(out lengthTsp),StartCity).ToList();
             int lastInCycle = tour.Last();
-            
-            int a; //początek odcinka, który sprawdzamy, czy zamiast niego nie wrócić do miasta startowego
-            a = lastInCycle;
+            int a = lastInCycle; //początek odcinka, który sprawdzamy, czy zamiast niego nie wrócić do miasta startowego
             int? minPoint = null;
             length1 = Double.MaxValue;
             length2 = Double.MaxValue;
@@ -101,16 +98,16 @@ namespace MyTSP
             double lengthFromStartToA = 0;
             foreach (int b in tour)
             {
-                if (startCity == b) //pierwsza iteracja omijana
+                if (StartCity == b) //pierwsza iteracja omijana
                 {
                     a = b;
                     continue;
                 }
                 double distanceAb = Distance(a, b);
-                double distanceFor1 = Distance(a, startCity);
-                double distanceFor2 = Distance(startCity, b);
+                double distanceFor1 = Distance(a, StartCity);
+                double distanceFor2 = Distance(StartCity, b);
                 double distanceChange = distanceFor1 + distanceFor2 - distanceAb;
-                if (a != startCity && b != startCity)
+                if (a != StartCity && b != StartCity)
                 {
                     
                     var cost = Delta(lengthFromStartToA+distanceFor1, 
@@ -127,13 +124,13 @@ namespace MyTSP
                 a = b;
                 lengthFromStartToA += distanceAb;
             }
-            List<int> solution = new List<int>();
+            var solution = new List<int>();
             foreach (int k in tour)
             {
                 solution.Add(k);
                 if (k == minPoint)
                 {
-                    solution.Add(startCity);
+                    solution.Add(StartCity);
                 }
             }
             return solution;
@@ -141,7 +138,8 @@ namespace MyTSP
 
         private static double Delta(double length1, double length2, double cycleIncrease)  //funkcja oceny rozwiązania - wg. dróg komiwojażerów i powiększenia cyklu
         {
-            return Math.Abs(length1 - length2) + cycleIncrease;
+            return Math.Max(length1, length2); 
+                //Math.Abs(length1 - length2) + cycleIncrease;
         }
 
         private static IEnumerable<int> ChangeCityOrder(List<int> tour, int start)
