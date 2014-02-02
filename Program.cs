@@ -34,7 +34,7 @@ namespace MyTSP
                 Console.Write(i + " -> ");
             }
             Console.WriteLine();
-            Console.ReadKey(true);
+            //Console.ReadKey(true);
         }
     }
 }

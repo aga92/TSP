@@ -13,6 +13,7 @@ namespace MyTSP
             Data = data;
             Arcs = from p1 in Data
                    from p2 in Data
+                   where p1!=p2
                    select new Arc { City1 = p1.Name, City2 = p2.Name, Distance = p1.Distance(p2) };
         }
 
@@ -73,14 +74,15 @@ namespace MyTSP
             var myArcs = Arcs.ToList();
             Arc shortestArc = SelectShortest(myArcs);
             var world = Data.Select(item => item.Name).ToDictionary(item => item, item => item == shortestArc.City1||item==shortestArc.City2);  //city, is used
-            myArcs.Remove(shortestArc);
+            myArcs.RemoveAll(arc => arc.City1 == shortestArc.City1 && arc.City2 == shortestArc.City2);
+            myArcs.RemoveAll(arc => arc.City1 == shortestArc.City2 && arc.City2 == shortestArc.City1);
             result.Add(shortestArc.City1,new Pair<int, int>{After=shortestArc.City2, Before = shortestArc.City2});
             result.Add(shortestArc.City2, new Pair<int, int> { After = shortestArc.City1, Before = shortestArc.City1 });
             int resultCount = 2;
             length = shortestArc.Distance;
             while (myArcs.Any())
             {
-                var arcBetweenSets = myArcs.Where(arc => world[arc.City1] ^ world[arc.City2]).ToList();
+                var arcBetweenSets = myArcs.Where(arc => world[arc.City1] ^ world[arc.City2]).ToList(); //to można uprościć - bez xor - arc 2 razy kazdy
                 shortestArc = SelectShortest(arcBetweenSets);
                 int newCity = world[shortestArc.City1] ? shortestArc.City2 : shortestArc.City1;
                 //insert to path
@@ -130,7 +132,7 @@ namespace MyTSP
 
         public List<int> Solve2Tsp(out double length1, out double length2, out double lengthTsp)
         {
-            var tour = ChangeCityOrder(SolveTspLinearProgramming(out lengthTsp),StartCity).ToList();
+            var tour = ChangeCityOrder(/*SolveTspLinearProgramming*/SolveTspNn(out lengthTsp), StartCity).ToList();
             int lastInCycle = tour.Last();
             int a = lastInCycle; //początek odcinka, który sprawdzamy, czy zamiast niego nie wrócić do miasta startowego
             int? minPoint = null;
