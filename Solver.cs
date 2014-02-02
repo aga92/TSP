@@ -106,6 +106,8 @@ namespace MyTSP
                 result.Add(newCity, new Pair<int, int> {After = after, Before = before}); //to jest ok, musi sie ustawic w petli
                 result[before].After = newCity;
                 result[after].Before = newCity;
+
+                length += increase;
                 
                 //insert to world
                 world[newCity] = true;
