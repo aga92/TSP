@@ -11,11 +11,13 @@ namespace MyTSP
         {
             StartCity = startCity;
             Data = data;
+            Arcs = from p1 in Data
+                   from p2 in Data
+                   select new Arc { City1 = p1.Name, City2 = p2.Name, Distance = p1.Distance(p2) };
         }
 
-        private Coordinate[] Data;
-        private int StartCity;
-
+        public Coordinate[] Data { get; set; }
+        public int StartCity;
         public IEnumerable<Arc> Arcs { get; private set; }
         public List<int> SolveTspLinearProgramming(out double length)
         {
@@ -26,9 +28,6 @@ namespace MyTSP
             // Parameters
             var city = new Set(Domain.IntegerNonnegative, "city");
             var dist = new Parameter(Domain.Real, "dist", city, city);
-            Arcs = from p1 in Data
-                   from p2 in Data
-                   select new Arc { City1 = p1.Name, City2 = p2.Name, Distance = p1.Distance(p2) };
             dist.SetBinding(Arcs, "Distance", "City1", "City2");
             model.AddParameters(dist);
 
@@ -62,18 +61,69 @@ namespace MyTSP
             );
 
             Solution solution = context.Solve();
-
-            // Retrieve solution information.
-            //Console.WriteLine("Cost = {0}", goal.ToDouble());
             length = goal.ToDouble();
-            //Console.WriteLine("Tour:");
             IEnumerable<object> tour = from p in assign.GetValues() where (double)p[0] > 0.9 select p[2];
-            //foreach (var i in tour.ToArray())
-            //{
-            //    Console.Write(i + " -> ");
-            //}
-            //Console.WriteLine();
             return tour.Select(Convert.ToInt32).ToList();
+        }
+
+        public List<int> SolveTspNn(out double length)
+        {
+            int key;
+            var result = new Dictionary<int,Pair<int, int>>();
+            var myArcs = Arcs.ToList();
+            Arc shortestArc = SelectShortest(myArcs);
+            var world = Data.Select(item => item.Name).ToDictionary(item => item, item => item == shortestArc.City1||item==shortestArc.City2);  //city, is used
+            myArcs.Remove(shortestArc);
+            result.Add(shortestArc.City1,new Pair<int, int>{After=shortestArc.City2, Before = shortestArc.City2});
+            result.Add(shortestArc.City2, new Pair<int, int> { After = shortestArc.City1, Before = shortestArc.City1 });
+            int resultCount = 2;
+            length = shortestArc.Distance;
+            while (myArcs.Any())
+            {
+                var arcBetweenSets = myArcs.Where(arc => world[arc.City1] ^ world[arc.City2]).ToList();
+                shortestArc = SelectShortest(arcBetweenSets);
+                int newCity = world[shortestArc.City1] ? shortestArc.City2 : shortestArc.City1;
+                //insert to path
+                int start = result.Keys.First();
+                int before=0, after=0;
+                double increase = Double.MaxValue;
+                key = start;
+                for (int i = 0; i < resultCount; i++)
+                {
+                    var a = result[key];
+                    var cost = CostOfInsertingNn(Distance(key, a.After), Distance(key, newCity),
+                                                 Distance(newCity, a.After));
+                    if (cost < increase)
+                    {
+                        increase = cost;
+                        before = key;
+                        after = a.After;
+                    }
+                    key = a.After;
+                }
+
+                // before - new city - after
+                result.Add(newCity, new Pair<int, int> {After = after, Before = before}); //to jest ok, musi sie ustawic w petli
+                result[before].After = newCity;
+                result[after].Before = newCity;
+                
+                //insert to world
+                world[newCity] = true;
+                
+                
+                //remove arcs
+                myArcs.RemoveAll(arc=>arc.City1==newCity ||arc.City2==newCity);
+            }
+            var solution = new List<int>{StartCity};
+            
+            key = result[StartCity].After;
+            while (key != StartCity)
+            {
+               solution.Add(key);
+               key = result[key].After;
+            }
+
+            return solution;
         }
 
         public List<int> Solve2Tsp(out double length1, out double length2, out double lengthTsp)
@@ -144,5 +194,42 @@ namespace MyTSP
         {
             return Data.First(item => item.Name == from).Distance(Data.First(item => item.Name == to));
         }
+
+        private double Distance(Coordinate from, Coordinate to)
+        {
+            return from.Distance(to);
+        }
+
+        private Coordinate GetCity(int name)
+        {
+            return Data.FirstOrDefault(item => item.Name == name);
+        }
+
+        private double CostOfInsertingNn(double current, double first, double secound)
+        {
+            return first + secound - current;
+        }
+
+        private Arc SelectShortest(IEnumerable<Arc> data)
+        {
+            var minDistance = Double.MaxValue;
+            Arc newArc = null;
+            foreach (var arc in data)
+            {
+                if (arc.Distance < minDistance)
+                {
+                    minDistance = arc.Distance;
+                    newArc = arc;
+                }
+            }
+            return newArc;
+        }
+    }
+
+    public class Pair<T1, T2>
+    {
+        public T1 Before;
+        public T2 After;
+        
     }
 }
