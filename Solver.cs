@@ -7,27 +7,17 @@ namespace MyTSP
 {
     public class Solver
     {
-        private static Coordinate[] data = new Coordinate[] {
-      new Coordinate(0, 16.47, 96.10),
-      new Coordinate(1, 16.47, 94.44),
-      new Coordinate(2, 20.09, 92.54),
-      new Coordinate(3, 22.39, 93.37),
-      new Coordinate(4, 25.23, 97.24),
-      new Coordinate(5, 22.00, 96.05),
-      new Coordinate(6, 20.47, 97.02),
-      new Coordinate(7, 17.20, 96.29),
-      new Coordinate(8, 16.30, 97.38),
-      new Coordinate(9, 14.05, 98.12),
-      new Coordinate(10, 16.53, 97.38),
-      new Coordinate(11, 21.52, 95.59),
-      new Coordinate(12, 19.41, 97.13),
-      new Coordinate(13, 20.09, 94.55)
-    };
+        public Solver(int startCity, Coordinate[] data)
+        {
+            StartCity = startCity;
+            Data = data;
+        }
 
-        public static IEnumerable<Arc> Arcs { get; private set; }
-        private const int StartCity = 0;
+        private Coordinate[] Data;
+        private int StartCity;
 
-        public static List<int> SolveTspLinearProgramming(out double length)
+        public IEnumerable<Arc> Arcs { get; private set; }
+        public List<int> SolveTspLinearProgramming(out double length)
         {
             SolverContext context = SolverContext.GetContext();
             Model model = context.CreateModel();
@@ -36,8 +26,8 @@ namespace MyTSP
             // Parameters
             var city = new Set(Domain.IntegerNonnegative, "city");
             var dist = new Parameter(Domain.Real, "dist", city, city);
-            Arcs = from p1 in data
-                   from p2 in data
+            Arcs = from p1 in Data
+                   from p2 in Data
                    select new Arc { City1 = p1.Name, City2 = p2.Name, Distance = p1.Distance(p2) };
             dist.SetBinding(Arcs, "Distance", "City1", "City2");
             model.AddParameters(dist);
@@ -55,7 +45,7 @@ namespace MyTSP
 
             // ------------
             // Enter and leave each city only once.
-            int n = data.Length;
+            int n = Data.Length;
             model.AddConstraint("assign_1",
               Model.ForEach(city, i => Model.Sum(Model.ForEachWhere(city, j => assign[i, j], j => i != j)) == 1));
             model.AddConstraint("assign_2",
@@ -86,7 +76,7 @@ namespace MyTSP
             return tour.Select(Convert.ToInt32).ToList();
         }
 
-        public static List<int> Solve2Tsp(out double length1, out double length2, out double lengthTsp)
+        public List<int> Solve2Tsp(out double length1, out double length2, out double lengthTsp)
         {
             var tour = ChangeCityOrder(SolveTspLinearProgramming(out lengthTsp),StartCity).ToList();
             int lastInCycle = tour.Last();
@@ -150,9 +140,9 @@ namespace MyTSP
         }
 
 
-        private static double Distance(int from, int to)
+        private double Distance(int from, int to)
         {
-            return data.First(item => item.Name == from).Distance(data.First(item => item.Name == to));
+            return Data.First(item => item.Name == from).Distance(Data.First(item => item.Name == to));
         }
     }
 }
